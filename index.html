@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Tata Surya 3D Interaktif</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #000; font-family: 'Segoe UI', Tahoma, sans-serif; color: #fff; }
+  #canvas-container { position: fixed; inset: 0; }
+  
+  .ui-overlay {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    background: rgba(10, 15, 35, 0.75);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.1);
+    padding: 18px 22px;
+    border-radius: 14px;
+    z-index: 10;
+    max-width: 320px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }
+  .ui-overlay h1 {
+    font-size: 1.3rem;
+    background: linear-gradient(90deg, #ffd700, #ff6b6b, #4ecdc4);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 8px;
+    font-weight: 700;
+  }
+  .ui-overlay p {
+    font-size: 0.82rem;
+    color: #c5cae9;
+    line-height: 1.5;
+    margin-bottom: 4px;
+  }
+  .ui-overlay .key {
+    display: inline-block;
+    background: rgba(255,255,255,0.1);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 0.75rem;
+    margin: 0 2px;
+  }
+
+  .controls {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(10, 15, 35, 0.75);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.1);
+    padding: 14px 22px;
+    border-radius: 50px;
+    z-index: 10;
+    display: flex;
+    gap: 18px;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: center;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }
+  .controls label {
+    font-size: 0.78rem;
+    color: #c5cae9;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+  }
+  .controls input[type="range"] {
+    width: 100px;
+    accent-color: #4ecdc4;
+  }
+  .controls button {
+    background: linear-gradient(135deg, #4ecdc4, #44a08d);
+    border: none;
+    padding: 8px 16px;
+    border-radius: 25px;
+    color: white;
+    cursor: pointer;
+    font-size: 0.82rem;
+    font-weight: 600;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .controls button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(78,205,196,0.5);
+  }
+
+  .planet-info {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: rgba(10, 15, 35, 0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.15);
+    padding: 18px 22px;
+    border-radius: 14px;
+    z-index: 10;
+    max-width: 280px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }
+  .planet-info.active { opacity: 1; }
+  .planet-info h2 {
+    font-size: 1.4rem;
+    margin-bottom: 8px;
+    color: #ffd700;
+  }
+  .planet-info p {
+    font-size: 0.82rem;
+    color: #c5cae9;
+    line-height: 1.6;
+    margin-bottom: 4px;
+  }
+
+  .loading {
+    position: fixed;
+    inset: 0;
+    background: #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    flex-direction: column;
+    gap: 20px;
+  }
+  .loading.hidden { display: none; }
+  .spinner {
+    width: 60px;
+    height: 60px;
+    border: 4px solid rgba(255,255,255,0.1);
+    border-top-color: #4ecdc4;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  @media (max-width: 600px) {
+    .ui-overlay { max-width: 220px; padding: 12px 16px; }
+    .ui-overlay h1 { font-size: 1rem; }
+    .ui-overlay p { font-size: 0.7rem; }
+    .controls { padding: 10px 14px; gap: 10px; bottom: 10px; width: 95%; }
+    .controls input[type="range"] { width: 70px; }
+    .controls label { font-size: 0.7rem; }
+    .planet-info { max-width: 200px; padding: 12px 14px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="loading" id="loading">
+  <div class="spinner"></div>
+  <p>Memuat Tata Surya...</p>
+</div>
+
+<div id="canvas-container"></div>
+
+<div class="ui-overlay">
+  <h1>🌌 Tata Surya 3D</h1>
+  <p><strong>Klik & Drag:</strong> Putar kamera (X/Y)</p>
+  <p><strong>Scroll:</strong> Zoom in/out</p>
+  <p><strong>Klik Planet:</strong> Lihat detail</p>
+  <p style="margin-top:8px;font-size:0.75rem;color:#7986cb;">Eksplorasi 8 planet dengan orbit realistis</p>
+</div>
+
+<div class="planet-info" id="planet-info">
+  <h2 id="planet-name">-</h2>
+  <p id="planet-desc">-</p>
+</div>
+
+<div class="controls">
+  <label>Kecepatan
+    <input type="range" id="speed" min="0" max="5" step="0.1" value="1">
+  </label>
+  <label>Orbit
+    <input type="checkbox" id="show-orbits" checked>
+  </label>
+  <button id="reset-view">Reset Kamera</button>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+const container = document.getElementById('canvas-container');
+
+// Scene
+const scene = new THREE.Scene();
+
+// Camera
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 5000);
+camera.position.set(0, 80, 180);
+
+// Renderer
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+container.appendChild(renderer.domElement);
+
+// Controls (rotasi X horizontal & Y vertikal)
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.minDistance = 15;
+controls.maxDistance = 800;
+
+// Stars background
+function createStars() {
+  const starsGeo = new THREE.BufferGeometry();
+  const starCount = 5000;
+  const positions = new Float32Array(starCount * 3);
+  const colors = new Float32Array(starCount * 3);
+  for (let i = 0; i < starCount; i++) {
+    const r = 1500 + Math.random()*500;
+    const theta = Math.random() * Math.PI * 2;
+    const phi = Math.acos(2*Math.random()-1);
+    positions[i*3] = r * Math.sin(phi) * Math.cos(theta);
+    positions[i*3+1] = r * Math.sin(phi) * Math.sin(theta);
+    positions[i*3+2] = r * Math.cos(phi);
+    const c = 0.5 + Math.random()*0.5;
+    colors[i*3] = c; colors[i*3+1] = c; colors[i*3+2] = c + Math.random()*0.2;
+  }
+  starsGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  starsGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  const starsMat = new THREE.PointsMaterial({ size: 1.2, vertexColors: true, transparent: true });
+  scene.add(new THREE.Points(starsGeo, starsMat));
+}
+createStars();
+
+// Lighting
+scene.add(new THREE.AmbientLight(0x222244, 0.6));
+const sunLight = new THREE.PointLight(0xffffff, 3, 0, 0.5);
+scene.add(sunLight);
+
+// Procedural texture for planets
+function createPlanetTexture(color1, color2, color3) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 512; canvas.height = 256;
+  const ctx = canvas.getContext('2d');
+  const grad = ctx.createLinearGradient(0,0,512,256);
+  grad.addColorStop(0, color1);
+  grad.addColorStop(0.5, color2);
+  grad.addColorStop(1, color3);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0,0,512,256);
+  // noise blobs
+  for (let i = 0; i < 80; i++) {
+    ctx.fillStyle = `rgba(${Math.random()*255|0},${Math.random()*255|0},${Math.random()*255|0},${Math.random()*0.3})`;
+    ctx.beginPath();
+    ctx.arc(Math.random()*512, Math.random()*256, Math.random()*30+5, 0, Math.PI*2);
+    ctx.fill();
+  }
+  return new THREE.CanvasTexture(canvas);
+}
+
+// Sun
+const sunGeo = new THREE.SphereGeometry(10, 64, 64);
+const sunTex = createPlanetTexture('#fff8c0', '#ffae42', '#ff5500');
+const sunMat = new THREE.MeshBasicMaterial({ map: sunTex });
+const sun = new THREE.Mesh(sunGeo, sunMat);
+sun.userData = { name: 'Matahari', desc: 'Bintang pusat tata surya. Diameter ~1.39 juta km, suhu permukaan ~5,500°C. Mengandung 99.86% massa tata surya.' };
+scene.add(sun);
+
+// Sun glow
+const glowGeo = new THREE.SphereGeometry(12, 32, 32);
+const glowMat = new THREE.MeshBasicMaterial({ color: 0xffaa33, transparent: true, opacity: 0.25, side: THREE.BackSide });
+sun.add(new THREE.Mesh(glowGeo, glowMat));
+
+// Planet data
+const planetsData = [
+  { name: 'Merkurius', size: 1.2, distance: 18, speed: 0.04, colors:['#8c7853','#a0826d','#5a4a3a'], desc: 'Planet terdekat dari Matahari. Tidak memiliki atmosfer. Suhu ekstrem -180°C hingga 430°C.' },
+  { name: 'Venus', size: 2.2, distance: 26, speed: 0.025, colors:['#ffe4b5','#ffa500','#cd853f'], desc: 'Planet terpanas (~465°C). Atmosfer tebal CO₂. Disebut "kembaran Bumi" karena ukurannya.' },
+  { name: 'Bumi', size: 2.4, distance: 36, speed: 0.018, colors:['#1e90ff','#4682b4','#228b22'], desc: 'Satu-satunya planet yang diketahui memiliki kehidupan. 71% permukaan tertutup air. Memiliki 1 satelit alami: Bulan.' },
+  { name: 'Mars', size: 1.6, distance: 46, speed: 0.014, colors:['#cd5c5c','#a0522d','#8b3a1f'], desc: 'Planet Merah. Memiliki Olympus Mons, gunung tertinggi di tata surya. 2 satelit: Phobos & Deimos.' },
+  { name: 'Jupiter', size: 6, distance: 70, speed: 0.008, colors:['#deb887','#cd853f','#8b4513'], desc: 'Planet terbesar. Massanya 2.5x semua planet lain digabung. Memiliki Bintik Merah Raksasa & 95+ satelit.' },
+  { name: 'Saturnus', size: 5.2, distance: 95, speed: 0.006, colors:['#f4e4bc','#daa520','#b8860b'], desc: 'Terkenal dengan cincin spektakulernya. Kepadatan lebih rendah dari air. 146+ satelit termasuk Titan.', ring: true },
+  { name: 'Uranus', size: 3.5, distance: 120, speed: 0.004, colors:['#afeeee','#40e0d0','#5f9ea0'], desc: 'Planet es. Berputar miring 98°. Atmosfer mengandung metana. 27 satelit yang diketahui.' },
+  { name: 'Neptunus', size: 3.4, distance: 145, speed: 0.003, colors:['#4169e1','#1e90ff','#000080'], desc: 'Planet terjauh. Angin tercepat di tata surya (>2000 km/jam). 14 satelit termasuk Triton.' },
+];
+
+const planets = [];
+const orbits = [];
+
+planetsData.forEach(data => {
+  // Orbit ring
+  const orbitGeo = new THREE.RingGeometry(data.distance - 0.05, data.distance + 0.05, 128);
+  const orbitMat = new THREE.MeshBasicMaterial({ color: 0x444466, side: THREE.DoubleSide, transparent: true, opacity: 0.4 });
+  const orbit = new THREE.Mesh(orbitGeo, orbitMat);
+  orbit.rotation.x = Math.PI / 2;
+  scene.add(orbit);
+  orbits.push(orbit);
+
+  // Planet
+  const geo = new THREE.SphereGeometry(data.size, 48, 48);
+  const tex = createPlanetTexture(data.colors[0], data.colors[1], data.colors[2]);
+  const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.85, metalness: 0.1 });
+  const planet = new THREE.Mesh(geo, mat);
+  
+  const pivot = new THREE.Object3D();
+  scene.add(pivot);
+  planet.position.x = data.distance;
+  pivot.add(planet);
+  
+  // Random starting angle
+  pivot.rotation.y = Math.random() * Math.PI * 2;
+  
+  planet.userData = { name: data.name, desc: data.desc };
+  
+  // Saturn rings
+  if (data.ring) {
+    const ringGeo = new THREE.RingGeometry(data.size * 1.4, data.size * 2.3, 64);
+    const ringTex = createPlanetTexture('#d4a574', '#8b6f47', '#3a2a1a');
+    const ringMat = new THREE.MeshBasicMaterial({ map: ringTex, side: THREE.DoubleSide, transparent: true, opacity: 0.85 });
+    const ring = new THREE.Mesh(ringGeo, ringMat);
+    ring.rotation.x = Math.PI / 2.3;
+    planet.add(ring);
+  }
+
+  // Earth moon
+  if (data.name === 'Bumi') {
+    const moonGeo = new THREE.SphereGeometry(0.6, 24, 24);
+    const moonMat = new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 1 });
+    const moon = new THREE.Mesh(moonGeo, moonMat);
+    moon.position.x = 4;
+    const moonPivot = new THREE.Object3D();
+    moonPivot.add(moon);
+    planet.add(moonPivot);
+    planet.userData.moonPivot = moonPivot;
+  }
+  
+  planets.push({ planet, pivot, speed: data.speed, rotSpeed: 0.01 + Math.random()*0.02 });
+});
+
+// Raycaster for clicks
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2();
+const planetInfo = document.getElementById('planet-info');
+const planetName = document.getElementById('planet-name');
+const planetDesc = document.getElementById('planet-desc');
+
+let infoTimeout;
+function onClick(event) {
+  pointer.x = (event.clientX / window.innerWidth) * 2 - 1;
+  pointer.y = -(event.clientY / window.innerHeight) * 2 + 1;
+  raycaster.setFromCamera(pointer, camera);
+  const objects = [sun, ...planets.map(p => p.planet)];
+  const intersects = raycaster.intersectObjects(objects);
+  if (intersects.length > 0) {
+    const obj = intersects[0].object;
+    if (obj.userData.name) {
+      planetName.textContent = obj.userData.name;
+      planetDesc.textContent = obj.userData.desc;
+      planetInfo.classList.add('active');
+      clearTimeout(infoTimeout);
+      infoTimeout = setTimeout(()=> planetInfo.classList.remove('active'), 6000);
+    }
+  }
+}
+renderer.domElement.addEventListener('click', onClick);
+
+// UI Controls
+const speedSlider = document.getElementById('speed');
+const showOrbitsCheck = document.getElementById('show-orbits');
+const resetBtn = document.getElementById('reset-view');
+
+let speedMultiplier = 1;
+speedSlider.addEventListener('input', e => speedMultiplier = parseFloat(e.target.value));
+
+showOrbitsCheck.addEventListener('change', e => {
+  orbits.forEach(o => o.visible = e.target.checked);
+});
+
+resetBtn.addEventListener('click', () => {
+  camera.position.set(0, 80, 180);
+  controls.target.set(0,0,0);
+  controls.update();
+});
+
+// Resize
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// Animate
+const clock = new THREE.Clock();
+function animate() {
+  requestAnimationFrame(animate);
+  const delta = clock.getDelta();
+  
+  sun.rotation.y += 0.002 * speedMultiplier;
+  
+  planets.forEach(p => {
+    p.pivot.rotation.y += p.speed * speedMultiplier;
+    p.planet.rotation.y += p.rotSpeed * speedMultiplier;
+    if (p.planet.userData.moonPivot) {
+      p.planet.userData.moonPivot.rotation.y += 0.05 * speedMultiplier;
+    }
+  });
+  
+  controls.update();
+  renderer.render(scene, camera);
+}
+
+animate();
+
+// Hide loader
+setTimeout(() => {
+  document.getElementById('loading').classList.add('hidden');
+}, 600);
+
+</script>
+</body>
+</html>
